@@ -3,12 +3,9 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-// TODO: Find a way to identify and do not add SUB-segment to the result
-
 public class FastCollinearPoints {
 
-    private final Point[] points;
-    private int numberOfSegments;
+    private LineSegment[] segments = null;
 
     public FastCollinearPoints(Point[] points) {    // finds all line segments containing 4 or more points
         if (points == null) throw new IllegalArgumentException();
@@ -17,92 +14,52 @@ public class FastCollinearPoints {
             if (point == null) throw new IllegalArgumentException();
         }
 
-        for (int i = 0; i < points.length; ++i) { // check duplicate points
-            for (int j = i + 1; j < points.length; ++j) {
-                if (points[i].compareTo(points[j]) == 0) throw new IllegalArgumentException();
+        Point[] copiedPoints = Arrays.copyOf(points, points.length);
+        List<LineSegment> res = new ArrayList<>();
+        Arrays.sort(copiedPoints); // 1st sorting with a Stable Sort afterwards helps order all points which have the same slope w.r.t current point
+
+        Point prevPoint = null;
+        for (Point curPoint : copiedPoints) {
+            if (prevPoint != null && curPoint.compareTo(prevPoint) == 0) {
+                throw new IllegalArgumentException();
+            }
+            prevPoint = curPoint;
+
+            Point[] slopeOrderedPoints = Arrays.copyOf(copiedPoints, copiedPoints.length);
+            Arrays.sort(slopeOrderedPoints, curPoint.slopeOrder());
+
+            double prevSlope = Double.NEGATIVE_INFINITY;
+            int startSlopeID = 0;
+            for (int i = 1; i < slopeOrderedPoints.length; ++i) {
+                double curSlope = curPoint.slopeTo(slopeOrderedPoints[i]);
+
+                if (Double.compare(curSlope, prevSlope) != 0) {
+                    if (i - startSlopeID >= 3) {
+                        if (curPoint.compareTo(slopeOrderedPoints[startSlopeID]) <= 0) {
+                            res.add(new LineSegment(curPoint, slopeOrderedPoints[i - 1]));
+                        }
+                    }
+                    startSlopeID = i;
+                } else if (i == slopeOrderedPoints.length - 1) {
+                    if (i - startSlopeID >= 2) {
+                        if (curPoint.compareTo(slopeOrderedPoints[startSlopeID]) <= 0) {
+                            res.add(new LineSegment(curPoint, slopeOrderedPoints[i]));
+                        }
+                    }
+                }
+                prevSlope = curSlope;
             }
         }
 
-        this.points = points;
-        this.numberOfSegments = -1;
+        segments = res.toArray(new LineSegment[0]);
     }
 
     public int numberOfSegments() {                 // the number of line segments
-        if (this.numberOfSegments == -1) {
-            LineSegment[] res = segments();
-            this.numberOfSegments = res.length;
-        }
-
-        return this.numberOfSegments;
+        return segments.length;
     }
 
     public LineSegment[] segments() {               // the line segments
-        List<Point[]> res = new ArrayList<>();
-        List<Integer> segSize = new ArrayList<>();
-        int len = points.length;
-
-        for (int i = 0; i < len; ++i) {
-            Point cur = points[i];
-            Point[] copiedPoints = Arrays.copyOf(points, len);
-            Arrays.sort(copiedPoints, cur.slopeOrder());
-
-            int leftId = 1;
-            for (int rightId = 3; rightId < len; ++rightId) {
-                double slope1 = cur.slopeTo(copiedPoints[rightId]);
-                double slope2 = cur.slopeTo(copiedPoints[rightId - 1]);
-                double slope3 = cur.slopeTo(copiedPoints[rightId - 2]);
-                if (slope1 == slope2 && slope2 == slope3) { // 3 slopes are equal
-                    if (rightId == len - 1) {
-                        // process the group from <leftId> to <rightId>
-                        processPossibleSegment(copiedPoints, leftId, rightId, segSize, res);
-                    }
-                    continue;
-                }
-                if (rightId - leftId >= 3) {
-                    // process the group from <leftId> to <rightId - 1>
-                    processPossibleSegment(copiedPoints, leftId, rightId - 1, segSize, res);
-                    // update leftId
-                    leftId = rightId - 1;
-                    continue;
-                }
-                leftId++;
-            }
-        }
-
-        List<LineSegment> segments = new ArrayList<>();
-        for (Point[] line : res) {
-            segments.add(new LineSegment(line[0], line[1]));
-        }
-        return segments.toArray(new LineSegment[0]);
+        return Arrays.copyOf(segments, segments.length);
     }
 
-    private void processPossibleSegment(Point[] copiedPoints, int leftId, int rightId, List<Integer> segSize, List<Point[]> res) {
-        // process the group from <leftId> to <rightId>
-        Point[] pointsOnSegment = Arrays.copyOfRange(copiedPoints, leftId, rightId + 2);
-        pointsOnSegment[pointsOnSegment.length - 1] = copiedPoints[0];
-        Arrays.sort(pointsOnSegment);
-        Point[] segment = {pointsOnSegment[0], pointsOnSegment[pointsOnSegment.length - 1]};
-
-        // check if this segment is already in <res>
-        double segmentSlope = segment[0].slopeTo(segment[1]);
-        Point[] lineToRemove = null;
-        Iterator<Integer> segSizeItr = segSize.iterator();
-        for (Point[] line : res) {
-            double curSlope = line[0].slopeTo(line[1]);
-            double lineToCurSlope = line[0].slopeTo(segment[0]);
-            int curSegSize = segSizeItr.next();
-            if (segmentSlope == curSlope && (line[0] == segment[0] || (segmentSlope == lineToCurSlope || segmentSlope == -lineToCurSlope))) {
-                if (pointsOnSegment.length >= curSegSize) {
-                    lineToRemove = line;
-                    break;
-                }
-            }
-        }
-        if (lineToRemove != null) {
-            res.remove(lineToRemove);
-            segSizeItr.remove();
-        }
-        res.add(segment);
-        segSize.add(pointsOnSegment.length);
-    }
 }

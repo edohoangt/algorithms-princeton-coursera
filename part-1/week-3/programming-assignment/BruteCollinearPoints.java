@@ -1,8 +1,9 @@
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class BruteCollinearPoints {
-    private final Point[] points;
-    private int numberOfSegments;
+    private LineSegment[] segments;
 
     public BruteCollinearPoints(Point[] points) {   // finds all line segments containing 4 points
         if (points == null) throw new IllegalArgumentException();
@@ -17,27 +18,30 @@ public class BruteCollinearPoints {
             }
         }
 
-        this.points = Arrays.copyOf(points, points.length);
-        this.numberOfSegments = -1;
-    }
+        List<LineSegment> res = new ArrayList<>();
+        Point[] copiedPoints = Arrays.copyOf(points, points.length);
 
-    public int numberOfSegments() {                 // the number of line segments
-        int res = 0, len = points.length;
+        int len = points.length;
 
         for (int i = 0; i < len; ++i) {
             for (int j = i + 1; j < len; ++j) {
                 for (int k = j + 1; k < len; ++k) {
                     for (int l = k + 1; l < len; ++l) {
-                        double slopeIJ = points[i].slopeTo(points[j]);
-                        double slopeJK = points[j].slopeTo(points[k]);
-                        double slopeKL = points[k].slopeTo(points[l]);
-                        if (slopeIJ == slopeJK && slopeJK == slopeKL) res++;
+                        double slopeIJ = copiedPoints[i].slopeTo(copiedPoints[j]);
+                        double slopeJK = copiedPoints[j].slopeTo(copiedPoints[k]);
+                        double slopeKL = copiedPoints[k].slopeTo(copiedPoints[l]);
+                        if (slopeIJ == slopeJK && slopeJK == slopeKL)
+                            res.add(maximalLineSegment(copiedPoints[i], copiedPoints[j], copiedPoints[k], copiedPoints[l]));
                     }
                 }
             }
         }
-        this.numberOfSegments = res;
-        return this.numberOfSegments;
+
+        segments = res.toArray(new LineSegment[0]);
+    }
+
+    public int numberOfSegments() {                 // the number of line segments
+        return segments.length;
     }
 
     private LineSegment maximalLineSegment(Point p1, Point p2, Point p3, Point p4) {
@@ -62,24 +66,7 @@ public class BruteCollinearPoints {
     }
 
     public LineSegment[] segments() {               // the line segments
-        if (this.numberOfSegments == -1) this.numberOfSegments = numberOfSegments();
-        LineSegment[] res = new LineSegment[this.numberOfSegments];
-        int len = points.length, cur = 0;
-
-        for (int i = 0; i < len; ++i) {
-            for (int j = i + 1; j < len; ++j) {
-                for (int k = j + 1; k < len; ++k) {
-                    for (int l = k + 1; l < len; ++l) {
-                        double slopeIJ = points[i].slopeTo(points[j]);
-                        double slopeJK = points[j].slopeTo(points[k]);
-                        double slopeKL = points[k].slopeTo(points[l]);
-                        if (slopeIJ == slopeJK && slopeJK == slopeKL)
-                            res[cur++] = maximalLineSegment(points[i], points[j], points[k], points[l]);
-                    }
-                }
-            }
-        }
-        return res;
+        return Arrays.copyOf(segments, segments.length);
     }
 
 }
